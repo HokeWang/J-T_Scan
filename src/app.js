@@ -1,4 +1,4 @@
-const WAYBILL_PATTERN = /JDM[0-9A-Z]{6,}/i;
+const WAYBILL_PATTERN = /JDM\d{12}/i;
 
 const elements = {
   dataCount: document.querySelector('#data-count'),
@@ -8,6 +8,8 @@ const elements = {
   html5Reader: document.querySelector('#html5-reader'),
   placeholder: document.querySelector('#camera-placeholder'),
   scanButton: document.querySelector('#scan-button'),
+  photoButton: document.querySelector('#photo-button'),
+  photoInput: document.querySelector('#photo-input'),
   stopButton: document.querySelector('#stop-button'),
   scanStatus: document.querySelector('#scan-status'),
   manualInput: document.querySelector('#manual-input'),
@@ -25,6 +27,7 @@ let detector = null;
 let html5Scanner = null;
 let scanTimer = null;
 let lastScanValue = '';
+let isStoppingScanner = false;
 
 document.addEventListener('DOMContentLoaded', () => {
   bindEvents();
@@ -33,6 +36,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function bindEvents() {
   elements.scanButton.addEventListener('click', startScanner);
+  elements.photoButton.addEventListener('click', () => elements.photoInput.click());
+  elements.photoInput.addEventListener('change', handlePhotoScan);
   elements.stopButton.addEventListener('click', stopScanner);
   elements.manualButton.addEventListener('click', () => lookup(elements.manualInput.value, '手动查询'));
   elements.manualInput.addEventListener('keydown', (event) => {
@@ -173,6 +178,9 @@ async function startNativeScanner() {
 
 async function startHtml5Scanner() {
   try {
+    if (!window.isSecureContext) {
+      throw new Error('InsecureContext');
+    }
     html5Scanner = new window.Html5Qrcode(elements.html5Reader.id, {
       formatsToSupport: getHtml5Formats()
     });
@@ -182,22 +190,103 @@ async function startHtml5Scanner() {
     elements.stopButton.disabled = false;
     elements.scanStatus.textContent = '正在请求摄像头权限，请允许浏览器使用摄像头。';
 
-    await html5Scanner.start(
-      { facingMode: 'environment' },
-      { fps: 10, qrbox: getQrbox, aspectRatio: 1.35 },
-      (decodedText) => {
-        if (decodedText && decodedText !== lastScanValue) {
-          lastScanValue = decodedText;
-          lookup(decodedText, '扫码识别');
-          window.navigator.vibrate?.(60);
-        }
-      }
-    );
+    await startHtml5ScannerWithFallbacks();
 
     elements.scanStatus.textContent = '摄像头已打开，请对准面单条码或二维码。';
   } catch (error) {
     stopScanner();
     elements.scanStatus.textContent = getCameraErrorMessage(error);
+  }
+}
+
+async function handlePhotoScan(event) {
+  const [file] = event.target.files;
+  if (!file) {
+    return;
+  }
+
+  try {
+    if (!window.Html5Qrcode) {
+      throw new Error('Html5Qrcode is unavailable');
+    }
+    stopScanner();
+    elements.scanStatus.textContent = '正在识别照片中的条码或二维码。';
+    const scanner = new window.Html5Qrcode(elements.html5Reader.id, {
+      formatsToSupport: getHtml5Formats()
+    });
+    const decodedText = await scanner.scanFile(file, false);
+    await scanner.clear().catch(() => {});
+    lookup(decodedText, '拍照识别');
+  } catch (error) {
+    elements.scanStatus.textContent = '照片未识别到有效单号，请靠近面单条码或二维码重新拍摄。';
+  } finally {
+    elements.photoInput.value = '';
+  }
+}
+
+async function startHtml5ScannerWithFallbacks() {
+  const config = { fps: 10, qrbox: getQrbox, aspectRatio: 1.3333333333 };
+  const onSuccess = (decodedText) => {
+    if (decodedText && decodedText !== lastScanValue) {
+      lastScanValue = decodedText;
+      lookup(decodedText, '扫码识别');
+      window.navigator.vibrate?.(60);
+    }
+  };
+  const candidates = await getCameraCandidates();
+  let lastError = null;
+
+  for (const cameraConfig of candidates) {
+    try {
+      await html5Scanner.start(cameraConfig, config, onSuccess);
+      return;
+    } catch (error) {
+      lastError = error;
+      await clearHtml5Scanner();
+    }
+  }
+
+  throw lastError || new Error('No camera configuration worked');
+}
+
+async function getCameraCandidates() {
+  const candidates = [];
+
+  try {
+    const cameras = await window.Html5Qrcode.getCameras();
+    const backCamera = cameras.find((camera) => /back|rear|environment|后|背|外/i.test(camera.label));
+    if (backCamera) {
+      candidates.push(backCamera.id);
+    }
+    cameras.forEach((camera) => {
+      if (!candidates.includes(camera.id)) {
+        candidates.push(camera.id);
+      }
+    });
+  } catch (error) {
+    // Some iOS browsers do not expose labels before permission; constraint fallbacks handle that path.
+  }
+
+  candidates.push(
+    { facingMode: { exact: 'environment' } },
+    { facingMode: { ideal: 'environment' } },
+    { facingMode: 'environment' },
+    { facingMode: 'user' },
+    true
+  );
+
+  return candidates;
+}
+
+async function clearHtml5Scanner() {
+  if (!html5Scanner) {
+    return;
+  }
+
+  try {
+    await html5Scanner.clear();
+  } catch (error) {
+    // The scanner can only be cleared after a successful start in some browser implementations.
   }
 }
 
@@ -218,8 +307,10 @@ function getHtml5Formats() {
 }
 
 function getQrbox(viewfinderWidth, viewfinderHeight) {
-  const width = Math.floor(viewfinderWidth * 0.82);
-  const height = Math.floor(Math.min(viewfinderHeight * 0.52, 260));
+  const maxWidth = Math.floor(viewfinderWidth * 0.86);
+  const maxHeight = Math.floor(viewfinderHeight * 0.82);
+  const width = Math.min(maxWidth, Math.floor(maxHeight * 4 / 3));
+  const height = Math.floor(width * 3 / 4);
   return { width, height };
 }
 
@@ -246,6 +337,10 @@ async function scanFrame() {
 }
 
 function stopScanner() {
+  if (isStoppingScanner) {
+    return;
+  }
+  isStoppingScanner = true;
   if (scanTimer) {
     window.clearInterval(scanTimer);
     scanTimer = null;
@@ -255,7 +350,12 @@ function stopScanner() {
     html5Scanner = null;
     scanner.stop()
       .then(() => scanner.clear())
-      .catch(() => scanner.clear());
+      .catch(() => scanner.clear())
+      .finally(() => {
+        isStoppingScanner = false;
+      });
+  } else {
+    isStoppingScanner = false;
   }
   mediaStream?.getTracks().forEach((track) => track.stop());
   mediaStream = null;
@@ -278,7 +378,7 @@ function getCameraErrorMessage(error) {
   if (!window.isSecureContext) {
     return '当前不是安全 HTTPS 页面，浏览器会禁止摄像头。请使用 GitHub Pages 的 https 链接访问。';
   }
-  return '摄像头启动失败，请刷新页面后重试，或先手动输入单号。';
+  return '摄像头启动失败。iOS 可点“拍照识别”唤起系统相机，或先手动输入单号。';
 }
 
 function lookup(rawText, sourceLabel) {
@@ -286,7 +386,7 @@ function lookup(rawText, sourceLabel) {
   elements.manualInput.value = waybill || rawText.trim();
 
   if (!waybill) {
-    showResult('--', '--', 'warn', '没有识别到 JDM 开头的运单号，请调整角度或手动输入。');
+    showResult('--', '--', 'warn', '没有识别到 JDM 加 12 位数字的运单号，请调整角度或手动输入。');
     return;
   }
 

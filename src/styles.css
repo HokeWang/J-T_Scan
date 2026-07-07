@@ -99,7 +99,8 @@ h2 {
 .camera-card {
   position: relative;
   overflow: hidden;
-  min-height: 320px;
+  aspect-ratio: 4 / 3;
+  max-height: 390px;
   border-radius: 8px;
   background: #14201c;
 }
@@ -107,7 +108,7 @@ h2 {
 video {
   display: block;
   width: 100%;
-  min-height: 320px;
+  height: 100%;
   object-fit: cover;
 }
 
@@ -124,7 +125,7 @@ video {
 .html5-reader video,
 .html5-reader canvas {
   width: 100% !important;
-  min-height: 320px;
+  height: 100% !important;
   object-fit: cover;
 }
 
@@ -204,8 +205,15 @@ button:disabled {
   color: #fffdf6;
 }
 
+.secondary-button {
+  flex: 0 0 108px;
+  border: 1px solid rgba(15, 139, 111, 0.28);
+  background: rgba(15, 139, 111, 0.1);
+  color: var(--brand-dark);
+}
+
 .ghost-button {
-  min-width: 92px;
+  flex: 0 0 76px;
   border: 1px solid var(--line);
   background: #fffdf6;
   color: var(--ink);
@@ -340,8 +348,10 @@ input[type="file"] {
     flex-direction: column;
   }
 
+  .secondary-button,
   .ghost-button,
   .file-button {
     width: 100%;
+    flex-basis: auto;
   }
 }

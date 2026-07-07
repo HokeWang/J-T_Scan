@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>运单段码快查</title>
-  <link rel="stylesheet" href="./src/styles.css">
+  <link rel="stylesheet" href="./src/styles.css?v=20260707-ios-camera">
 </head>
 <body>
   <main class="app-shell">
@@ -25,8 +25,10 @@
       </div>
       <div class="action-row">
         <button class="primary-button" type="button" id="scan-button">开始扫码</button>
+        <button class="secondary-button" type="button" id="photo-button">拍照识别</button>
         <button class="ghost-button" type="button" id="stop-button" disabled>停止</button>
       </div>
+      <input id="photo-input" type="file" accept="image/*" capture="environment">
       <p class="status-text" id="scan-status" role="status">正在加载运单段码对照表。</p>
     </section>
 
@@ -58,6 +60,6 @@
   <script src="./src/data.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script defer src="./src/app.js"></script>
+  <script defer src="./src/app.js?v=20260707-ios-camera"></script>
 </body>
 </html>
