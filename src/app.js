@@ -149,8 +149,17 @@ async function startZxingScanner() {
     elements.stopButton.disabled = false;
     elements.scanStatus.textContent = '正在请求摄像头权限，请允许浏览器使用摄像头。';
 
-    const deviceId = await getBackCameraDeviceId();
-    await codeReader.decodeFromVideoDevice(deviceId, elements.video, handleDecodeResult);
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      },
+      audio: false
+    });
+    elements.video.srcObject = mediaStream;
+    await elements.video.play();
+    codeReader.decodeFromVideoElementContinuously(elements.video, handleDecodeResult);
 
     elements.scanStatus.textContent = '摄像头已打开，请把条码横向放进取景框。';
   } catch (error) {
@@ -173,13 +182,10 @@ function getDecodeHints() {
   return hints;
 }
 
-async function getBackCameraDeviceId() {
-  const devices = await window.ZXing.BrowserCodeReader.listVideoInputDevices();
-  const backCamera = devices.find((device) => /back|rear|environment|后|背|外/i.test(device.label));
-  return backCamera?.deviceId || devices[devices.length - 1]?.deviceId;
-}
-
-function handleDecodeResult(result) {
+function handleDecodeResult(result, error) {
+  if (error && error.name && error.name !== 'NotFoundException') {
+    elements.scanStatus.textContent = '正在扫描，请让条码保持清晰并横向放入取景框。';
+  }
   if (!result?.text || result.text === lastScanValue) {
     return;
   }

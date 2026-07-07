@@ -34,24 +34,15 @@ input {
   width: min(100%, 520px);
   min-height: 100vh;
   margin: 0 auto;
-  padding: max(18px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
+  padding: max(10px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
 }
 
 .topbar {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 2px 16px;
-}
-
-.eyebrow {
-  margin: 0 0 6px;
-  color: var(--brand-dark);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0;
-  text-transform: uppercase;
+  padding: 2px 2px 10px;
 }
 
 h1,
@@ -62,8 +53,8 @@ p {
 
 h1 {
   margin-bottom: 0;
-  font-size: clamp(30px, 9vw, 42px);
-  line-height: 1.05;
+  font-size: clamp(24px, 7vw, 32px);
+  line-height: 1.1;
 }
 
 h2 {
