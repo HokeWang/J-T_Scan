@@ -111,6 +111,30 @@ video {
   object-fit: cover;
 }
 
+.html5-reader {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.html5-reader:empty {
+  display: none;
+}
+
+.html5-reader video,
+.html5-reader canvas {
+  width: 100% !important;
+  min-height: 320px;
+  object-fit: cover;
+}
+
+.html5-reader img,
+.html5-reader button,
+.html5-reader select,
+.html5-reader span {
+  display: none !important;
+}
+
 .camera-placeholder {
   position: absolute;
   inset: 0;
