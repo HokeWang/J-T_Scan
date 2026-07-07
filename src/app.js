@@ -11,11 +11,7 @@ const translations = {
     resultHint: '拍照或手输后，这里会显示正确段码。',
     manualLabel: '手动输入或粘贴单号',
     queryButton: '查询',
-    dataSourceTitle: '数据源',
-    dataSourceReady: '默认使用已内置的运单段码对照数据。',
-    reimportExcel: '重新导入 Excel',
     embeddedReady: '数据已就绪，正在准备摄像头。',
-    importReady: '数据已就绪，可以拍照识别。',
     noData: '内置数据未载入，请点击“重新导入 Excel”。',
     cameraPermission: '正在请求摄像头权限，请允许浏览器使用摄像头。',
     cameraReady: '摄像头已打开，请把面单条码或二维码放进取景框后拍照。',
@@ -33,10 +29,7 @@ const translations = {
     cameraDenied: '摄像头权限被拒绝，请在浏览器地址栏或系统设置中允许相机权限。',
     cameraMissing: '没有找到可用摄像头，请确认浏览器有相机权限。',
     insecureContext: '当前不是安全 HTTPS 页面，浏览器会禁止摄像头。请使用 GitHub Pages 的 https 链接访问。',
-    cameraFailed: '摄像头启动失败，请刷新页面后重试，或先手动输入单号。',
-    excelLoadFailed: 'Excel 导入失败。',
-    xlsxLoadFailed: 'Excel 解析库加载失败，请检查网络后刷新。',
-    noWorkbookData: 'Excel 中没有识别到“运单号”和“正确段码”数据。'
+    cameraFailed: '摄像头启动失败，请刷新页面后重试，或先手动输入单号。'
   },
   es: {
     title: 'Consulta rápida de código de tramo',
@@ -48,11 +41,7 @@ const translations = {
     resultHint: 'Después de tomar una foto o ingresar la guía, aquí se mostrará el código correcto.',
     manualLabel: 'Ingresar o pegar número de guía',
     queryButton: 'Buscar',
-    dataSourceTitle: 'Fuente de datos',
-    dataSourceReady: 'Usando la tabla integrada de guías y códigos de tramo.',
-    reimportExcel: 'Importar Excel de nuevo',
     embeddedReady: 'Datos listos. Preparando la cámara.',
-    importReady: 'Datos listos. Puede tomar una foto para reconocer la guía.',
     noData: 'No se cargaron datos integrados. Importe el Excel de nuevo.',
     cameraPermission: 'Solicitando permiso de cámara. Permita el acceso en el navegador.',
     cameraReady: 'Cámara abierta. Coloque el código de barras o QR dentro del marco y tome la foto.',
@@ -70,17 +59,12 @@ const translations = {
     cameraDenied: 'Permiso de cámara denegado. Permita la cámara en el navegador o en la configuración del sistema.',
     cameraMissing: 'No se encontró una cámara disponible. Confirme el permiso de cámara.',
     insecureContext: 'La página no usa HTTPS seguro. El navegador bloqueará la cámara. Use el enlace HTTPS de GitHub Pages.',
-    cameraFailed: 'No se pudo iniciar la cámara. Actualice la página o ingrese la guía manualmente.',
-    excelLoadFailed: 'Error al importar el Excel.',
-    xlsxLoadFailed: 'No se pudo cargar el lector de Excel. Revise la red y actualice la página.',
-    noWorkbookData: 'No se detectaron datos de “运单号” y “正确段码” en el Excel.'
+    cameraFailed: 'No se pudo iniciar la cámara. Actualice la página o ingrese la guía manualmente.'
   }
 };
 
 const elements = {
   languageButtons: document.querySelectorAll('.language-button'),
-  dataSource: document.querySelector('#data-source'),
-  excelInput: document.querySelector('#excel-input'),
   cameraCard: document.querySelector('.camera-card'),
   video: document.querySelector('#camera-preview'),
   canvas: document.querySelector('#photo-canvas'),
@@ -121,7 +105,6 @@ function bindEvents() {
       lookup(elements.manualInput.value, '手动查询');
     }
   });
-  elements.excelInput.addEventListener('change', handleExcelUpload);
 }
 
 function loadEmbeddedData() {
@@ -142,61 +125,7 @@ function loadEmbeddedData() {
   }
 
   waybillMap = nextMap;
-  elements.dataSource.textContent = t('dataSourceReady');
   elements.scanStatus.textContent = t('embeddedReady');
-}
-
-function waitForXlsx() {
-  return new Promise((resolve, reject) => {
-    const startedAt = Date.now();
-    const timer = window.setInterval(() => {
-      if (window.XLSX) {
-        window.clearInterval(timer);
-        resolve();
-      } else if (Date.now() - startedAt > 8000) {
-        window.clearInterval(timer);
-        reject(new Error(t('xlsxLoadFailed')));
-      }
-    }, 80);
-  });
-}
-
-async function handleExcelUpload(event) {
-  const [file] = event.target.files;
-  if (!file) {
-    return;
-  }
-
-  try {
-    await waitForXlsx();
-    const buffer = await file.arrayBuffer();
-    loadWorkbook(buffer, file.name);
-  } catch (error) {
-    elements.scanStatus.textContent = error.message || t('excelLoadFailed');
-  }
-}
-
-function loadWorkbook(buffer, sourceName) {
-  const workbook = window.XLSX.read(buffer, { type: 'array' });
-  const firstSheetName = workbook.SheetNames[0];
-  const rows = window.XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName], { defval: '' });
-  const nextMap = new Map();
-
-  rows.forEach((row) => {
-    const waybill = normalizeWaybill(row['运单号'] || row['单号'] || row['waybill'] || row['Waybill']);
-    const segment = String(row['正确段码'] || row['段码'] || row['segment'] || row['Segment'] || '').trim();
-    if (waybill && segment) {
-      nextMap.set(waybill, segment);
-    }
-  });
-
-  if (nextMap.size === 0) {
-    throw new Error(t('noWorkbookData'));
-  }
-
-  waybillMap = nextMap;
-  elements.dataSource.textContent = `已载入：${sourceName}`;
-  elements.scanStatus.textContent = t('importReady');
 }
 
 async function startCameraPreview() {
