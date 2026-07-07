@@ -441,7 +441,7 @@ function resolveManualWaybill(value) {
 
   const matches = Array.from(waybillMap.keys()).filter((waybill) => {
     if (digits) {
-      return waybill.replace(/^JDM/, '').endsWith(digits);
+      return waybill.replace(/^JDM/, '').includes(digits);
     }
     return waybill.includes(token);
   });
