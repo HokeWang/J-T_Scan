@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>运单段码快查</title>
+  <link rel="stylesheet" href="./src/styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Waybill Segment Scanner</p>
+        <h1>运单段码快查</h1>
+      </div>
+      <span class="data-pill" id="data-count">载入中</span>
+    </header>
+
+    <section class="scanner-panel" aria-label="扫码查询">
+      <div class="camera-card">
+        <video id="camera-preview" playsinline muted></video>
+        <div class="scan-frame" aria-hidden="true"><span></span></div>
+        <div class="camera-placeholder" id="camera-placeholder">点击开始扫码，对准面单条码或二维码</div>
+      </div>
+      <div class="action-row">
+        <button class="primary-button" type="button" id="scan-button">开始扫码</button>
+        <button class="ghost-button" type="button" id="stop-button" disabled>停止</button>
+      </div>
+      <p class="status-text" id="scan-status" role="status">正在加载运单段码对照表。</p>
+    </section>
+
+    <section class="lookup-card" aria-label="手动查询">
+      <label for="manual-input">手动输入或粘贴单号</label>
+      <div class="manual-row">
+        <input id="manual-input" type="text" inputmode="text" autocomplete="off" placeholder="例如 JDM000001507469">
+        <button type="button" id="manual-button">查询</button>
+      </div>
+    </section>
+
+    <section class="result-card" id="result-card" data-state="idle" aria-live="polite">
+      <p class="result-label" id="result-label">等待扫码</p>
+      <div class="waybill-number" id="waybill-number">--</div>
+      <div class="segment-code" id="segment-code">--</div>
+      <p class="result-note" id="result-note">扫码或手输后，这里会显示正确段码。</p>
+    </section>
+
+    <section class="tools-card" aria-label="数据工具">
+      <div>
+        <h2>数据源</h2>
+        <p id="data-source">默认使用已内置的运单段码对照数据。</p>
+      </div>
+      <label class="file-button" for="excel-input">重新导入 Excel</label>
+      <input id="excel-input" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
+    </section>
+  </main>
+
+  <script src="./src/data.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script defer src="./src/app.js"></script>
+</body>
+</html>
