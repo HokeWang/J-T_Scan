@@ -152,8 +152,9 @@ async function startZxingScanner() {
     mediaStream = await navigator.mediaDevices.getUserMedia({
       video: {
         facingMode: { ideal: 'environment' },
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+        focusMode: { ideal: 'continuous' }
       },
       audio: false
     });
@@ -190,8 +191,10 @@ function handleDecodeResult(result, error) {
     return;
   }
 
-  const waybill = normalizeWaybill(result.text);
+  const waybill = resolveWaybill(result.text);
   if (!waybill) {
+    elements.scanStatus.textContent = `已识别：${shortenRawText(result.text)}，但未解析出 JDM 加 12 位数字。`;
+    lastScanValue = result.text;
     return;
   }
 
@@ -258,7 +261,7 @@ function getCameraErrorMessage(error) {
 }
 
 function lookup(rawText, sourceLabel) {
-  const waybill = normalizeWaybill(rawText);
+  const waybill = resolveWaybill(rawText);
   elements.manualInput.value = waybill || rawText.trim();
 
   if (!waybill) {
@@ -277,8 +280,43 @@ function lookup(rawText, sourceLabel) {
 
 function normalizeWaybill(value) {
   const text = String(value || '').replace(/\s+/g, '').toUpperCase();
-  const match = text.match(WAYBILL_PATTERN);
-  return match ? match[0] : '';
+  const directMatch = text.match(WAYBILL_PATTERN);
+  if (directMatch) {
+    return directMatch[0];
+  }
+
+  const spacedPrefixMatch = text.match(/JDM\D*(\d{12})/);
+  if (spacedPrefixMatch) {
+    return `JDM${spacedPrefixMatch[1]}`;
+  }
+
+  const digits = text.replace(/\D/g, '');
+  return digits.length === 12 ? `JDM${digits}` : '';
+}
+
+function resolveWaybill(value) {
+  const normalized = normalizeWaybill(value);
+  if (normalized) {
+    return normalized;
+  }
+
+  const digits = String(value || '').replace(/\D/g, '');
+  for (let index = 0; index <= digits.length - 12; index += 1) {
+    const candidate = `JDM${digits.slice(index, index + 12)}`;
+    if (waybillMap.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  return '';
+}
+
+function shortenRawText(value) {
+  const text = String(value || '').trim();
+  if (text.length <= 28) {
+    return text || '--';
+  }
+  return `${text.slice(0, 12)}...${text.slice(-10)}`;
 }
 
 function showResult(waybill, segment, state, note) {
