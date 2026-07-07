@@ -5,7 +5,6 @@ const elements = {
   dataSource: document.querySelector('#data-source'),
   excelInput: document.querySelector('#excel-input'),
   video: document.querySelector('#camera-preview'),
-  html5Reader: document.querySelector('#html5-reader'),
   placeholder: document.querySelector('#camera-placeholder'),
   scanButton: document.querySelector('#scan-button'),
   stopButton: document.querySelector('#stop-button'),
@@ -21,11 +20,10 @@ const elements = {
 
 let waybillMap = new Map();
 let mediaStream = null;
-let detector = null;
-let html5Scanner = null;
+let codeReader = null;
 let scanTimer = null;
 let lastScanValue = '';
-let isStoppingScanner = false;
+let audioContext = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   bindEvents();
@@ -131,211 +129,112 @@ async function startScanner() {
   stopScanner();
   lastScanValue = '';
 
-  if (window.Html5Qrcode) {
-    await startHtml5Scanner();
-    return;
-  }
-
-  if ('BarcodeDetector' in window) {
-    await startNativeScanner();
+  if (window.ZXing) {
+    await startZxingScanner();
     return;
   }
 
   elements.scanStatus.textContent = '扫码组件未加载成功，请刷新页面；也可以先手动输入单号。';
 }
 
-async function startNativeScanner() {
-  try {
-    detector = new window.BarcodeDetector({
-      formats: ['qr_code', 'code_128', 'code_39', 'codabar', 'ean_13', 'itf']
-    });
-    mediaStream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: { ideal: 'environment' },
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
-      },
-      audio: false
-    });
-    elements.video.srcObject = mediaStream;
-    await elements.video.play();
-    elements.placeholder.hidden = true;
-    elements.scanButton.disabled = true;
-    elements.stopButton.disabled = false;
-    elements.scanStatus.textContent = '正在扫码，请让条码或二维码进入取景框。';
-    scanTimer = window.setInterval(scanFrame, 280);
-  } catch (error) {
-    stopScanner();
-    elements.scanStatus.textContent = error.name === 'NotAllowedError'
-      ? '摄像头权限被拒绝，请允许浏览器使用摄像头。'
-      : '摄像头启动失败，请改用手动输入。';
-  }
-}
-
-async function startHtml5Scanner() {
+async function startZxingScanner() {
   try {
     if (!window.isSecureContext) {
       throw new Error('InsecureContext');
     }
-    html5Scanner = new window.Html5Qrcode(elements.html5Reader.id, {
-      formatsToSupport: getHtml5Formats()
-    });
+    await warmUpAudio();
+    codeReader = new window.ZXing.BrowserMultiFormatReader(getDecodeHints(), 120);
     elements.placeholder.hidden = true;
-    elements.video.hidden = true;
     elements.scanButton.disabled = true;
     elements.stopButton.disabled = false;
     elements.scanStatus.textContent = '正在请求摄像头权限，请允许浏览器使用摄像头。';
 
-    await startHtml5ScannerWithFallbacks();
+    const deviceId = await getBackCameraDeviceId();
+    await codeReader.decodeFromVideoDevice(deviceId, elements.video, handleDecodeResult);
 
-    elements.scanStatus.textContent = '摄像头已打开，请对准面单条码或二维码。';
+    elements.scanStatus.textContent = '摄像头已打开，请把条码横向放进取景框。';
   } catch (error) {
     stopScanner();
     elements.scanStatus.textContent = getCameraErrorMessage(error);
   }
 }
 
-async function startHtml5ScannerWithFallbacks() {
-  const config = { fps: 10, qrbox: getQrbox, aspectRatio: 1.3333333333 };
-  const onSuccess = (decodedText) => {
-    if (decodedText && decodedText !== lastScanValue) {
-      lastScanValue = decodedText;
-      lookup(decodedText, '扫码识别');
-      window.navigator.vibrate?.(60);
-    }
-  };
-  const candidates = await getCameraCandidates();
-  let lastError = null;
-
-  for (const cameraConfig of candidates) {
-    try {
-      await html5Scanner.start(cameraConfig, config, onSuccess);
-      return;
-    } catch (error) {
-      lastError = error;
-      await clearHtml5Scanner();
-    }
-  }
-
-  throw lastError || new Error('No camera configuration worked');
-}
-
-async function getCameraCandidates() {
-  const candidates = [];
-
-  try {
-    const cameras = await window.Html5Qrcode.getCameras();
-    const backCamera = cameras.find((camera) => /back|rear|environment|后|背|外/i.test(camera.label));
-    if (backCamera) {
-      candidates.push(backCamera.id);
-    }
-    cameras.forEach((camera) => {
-      if (!candidates.includes(camera.id)) {
-        candidates.push(camera.id);
-      }
-    });
-  } catch (error) {
-    // Some iOS browsers do not expose labels before permission; constraint fallbacks handle that path.
-  }
-
-  candidates.push(
-    { facingMode: { exact: 'environment' } },
-    { facingMode: { ideal: 'environment' } },
-    { facingMode: 'environment' },
-    { facingMode: 'user' },
-    true
-  );
-
-  return candidates;
-}
-
-async function clearHtml5Scanner() {
-  if (!html5Scanner) {
-    return;
-  }
-
-  try {
-    await html5Scanner.clear();
-  } catch (error) {
-    // The scanner can only be cleared after a successful start in some browser implementations.
-  }
-}
-
-function getHtml5Formats() {
-  if (!window.Html5QrcodeSupportedFormats) {
-    return undefined;
-  }
-
-  const formats = window.Html5QrcodeSupportedFormats;
-  return [
-    formats.QR_CODE,
+function getDecodeHints() {
+  const hints = new Map();
+  const formats = window.ZXing.BarcodeFormat;
+  hints.set(window.ZXing.DecodeHintType.POSSIBLE_FORMATS, [
     formats.CODE_128,
     formats.CODE_39,
+    formats.ITF,
     formats.CODABAR,
-    formats.EAN_13,
-    formats.ITF
-  ].filter(Boolean);
+    formats.QR_CODE
+  ]);
+  hints.set(window.ZXing.DecodeHintType.TRY_HARDER, true);
+  return hints;
 }
 
-function getQrbox(viewfinderWidth, viewfinderHeight) {
-  const maxWidth = Math.floor(viewfinderWidth * 0.86);
-  const maxHeight = Math.floor(viewfinderHeight * 0.82);
-  const width = Math.min(maxWidth, Math.floor(maxHeight * 4 / 3));
-  const height = Math.floor(width * 3 / 4);
-  return { width, height };
+async function getBackCameraDeviceId() {
+  const devices = await window.ZXing.BrowserCodeReader.listVideoInputDevices();
+  const backCamera = devices.find((device) => /back|rear|environment|后|背|外/i.test(device.label));
+  return backCamera?.deviceId || devices[devices.length - 1]?.deviceId;
 }
 
-async function scanFrame() {
-  if (!detector || !elements.video.videoWidth) {
+function handleDecodeResult(result) {
+  if (!result?.text || result.text === lastScanValue) {
     return;
   }
 
-  try {
-    const codes = await detector.detect(elements.video);
-    if (!codes.length) {
-      return;
-    }
-    const rawValue = codes[0].rawValue || '';
-    if (rawValue && rawValue !== lastScanValue) {
-      lastScanValue = rawValue;
-      lookup(rawValue, '扫码识别');
-      window.navigator.vibrate?.(60);
-    }
-  } catch (error) {
-    elements.scanStatus.textContent = '扫码识别中断，请重新开始扫码。';
-    stopScanner();
+  const waybill = normalizeWaybill(result.text);
+  if (!waybill) {
+    return;
   }
+
+  lastScanValue = result.text;
+  playBeep();
+  window.navigator.vibrate?.(70);
+  lookup(waybill, '扫码识别');
 }
 
 function stopScanner() {
-  if (isStoppingScanner) {
-    return;
-  }
-  isStoppingScanner = true;
   if (scanTimer) {
     window.clearInterval(scanTimer);
     scanTimer = null;
   }
-  if (html5Scanner) {
-    const scanner = html5Scanner;
-    html5Scanner = null;
-    scanner.stop()
-      .then(() => scanner.clear())
-      .catch(() => scanner.clear())
-      .finally(() => {
-        isStoppingScanner = false;
-      });
-  } else {
-    isStoppingScanner = false;
-  }
+  codeReader?.reset();
+  codeReader = null;
   mediaStream?.getTracks().forEach((track) => track.stop());
   mediaStream = null;
-  detector = null;
   elements.video.srcObject = null;
   elements.video.hidden = false;
   elements.placeholder.hidden = false;
   elements.scanButton.disabled = false;
   elements.stopButton.disabled = true;
+}
+
+async function warmUpAudio() {
+  if (!audioContext) {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioContext.state === 'suspended') {
+    await audioContext.resume();
+  }
+}
+
+function playBeep() {
+  if (!audioContext) {
+    return;
+  }
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  oscillator.type = 'square';
+  oscillator.frequency.setValueAtTime(1320, audioContext.currentTime);
+  gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.22, audioContext.currentTime + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.12);
+  oscillator.connect(gain);
+  gain.connect(audioContext.destination);
+  oscillator.start();
+  oscillator.stop(audioContext.currentTime + 0.13);
 }
 
 function getCameraErrorMessage(error) {

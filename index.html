@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>运单段码快查</title>
-  <link rel="stylesheet" href="./src/styles.css?v=20260707-android-layout">
+  <link rel="stylesheet" href="./src/styles.css?v=20260707-zxing-fast">
 </head>
 <body>
   <main class="app-shell">
@@ -19,7 +19,6 @@
     <section class="scanner-panel" aria-label="扫码查询">
       <div class="camera-card">
         <video id="camera-preview" playsinline muted></video>
-        <div id="html5-reader" class="html5-reader"></div>
         <div class="scan-frame" aria-hidden="true"><span></span></div>
         <div class="camera-placeholder" id="camera-placeholder">点击开始扫描，对准面单条码或二维码</div>
       </div>
@@ -56,8 +55,8 @@
   </main>
 
   <script src="./src/data.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script defer src="./src/app.js?v=20260707-android-layout"></script>
+  <script defer src="./src/app.js?v=20260707-zxing-fast"></script>
 </body>
 </html>

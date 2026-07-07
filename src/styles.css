@@ -99,8 +99,9 @@ h2 {
 .camera-card {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 4 / 3;
   width: 100%;
+  height: min(66vw, 360px);
+  min-height: 240px;
   max-height: 390px;
   border-radius: 8px;
   background: #14201c;
@@ -111,45 +112,6 @@ video {
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-
-.html5-reader {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  width: 100% !important;
-  height: 100% !important;
-  border: 0 !important;
-  padding: 0 !important;
-}
-
-.html5-reader:empty {
-  display: none;
-}
-
-.html5-reader > div,
-.html5-reader #html5-reader__scan_region {
-  width: 100% !important;
-  height: 100% !important;
-  min-height: 100% !important;
-  padding: 0 !important;
-  border: 0 !important;
-}
-
-.html5-reader video,
-.html5-reader canvas,
-.html5-reader #html5-reader__scan_region video {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover !important;
-}
-
-.html5-reader img,
-.html5-reader button,
-.html5-reader select,
-.html5-reader span,
-.html5-reader #html5-reader__dashboard {
-  display: none !important;
 }
 
 .camera-placeholder {
