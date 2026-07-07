@@ -124,6 +124,11 @@ video {
   line-height: 1.6;
 }
 
+.camera-card.preview-ready .camera-placeholder,
+.camera-card.photo-captured .camera-placeholder {
+  display: none;
+}
+
 .scan-frame {
   position: absolute;
   inset: 17% 11%;
@@ -142,6 +147,11 @@ video {
   background: #23d39f;
   box-shadow: 0 0 16px rgba(35, 211, 159, 0.85);
   animation: scanline 1.8s ease-in-out infinite;
+}
+
+.camera-card.preview-ready .scan-frame span,
+.camera-card.photo-captured .scan-frame span {
+  display: none;
 }
 
 @keyframes scanline {

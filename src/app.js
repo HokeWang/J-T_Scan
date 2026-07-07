@@ -4,6 +4,7 @@ const elements = {
   dataCount: document.querySelector('#data-count'),
   dataSource: document.querySelector('#data-source'),
   excelInput: document.querySelector('#excel-input'),
+  cameraCard: document.querySelector('.camera-card'),
   video: document.querySelector('#camera-preview'),
   canvas: document.querySelector('#photo-canvas'),
   placeholder: document.querySelector('#camera-placeholder'),
@@ -142,6 +143,8 @@ async function startCameraPreview() {
     await elements.video.play();
     codeReader = new window.ZXing.BrowserMultiFormatReader(getDecodeHints(), 120);
     elements.placeholder.hidden = true;
+    elements.cameraCard.classList.add('preview-ready');
+    elements.cameraCard.classList.remove('photo-captured');
     elements.photoButton.disabled = false;
     elements.scanStatus.textContent = '摄像头已打开，请把面单条码或二维码放进取景框后拍照。';
   } catch (error) {
@@ -175,6 +178,8 @@ async function captureAndDecodePhoto() {
     context.drawImage(elements.video, 0, 0, canvas.width, canvas.height);
     canvas.hidden = false;
     elements.video.hidden = true;
+    elements.cameraCard.classList.add('photo-captured');
+    elements.cameraCard.classList.remove('preview-ready');
     photoCaptured = true;
     elements.photoButton.textContent = '重拍';
     elements.scanStatus.textContent = '正在识别照片中的条码或二维码。';
@@ -196,6 +201,21 @@ async function captureAndDecodePhoto() {
 }
 
 async function decodePhoto(canvas) {
+  const candidates = createDecodeCanvases(canvas);
+  for (const candidate of candidates) {
+    const zxingText = await decodeWithZxing(candidate).catch(() => '');
+    if (resolveWaybill(zxingText)) {
+      return zxingText;
+    }
+    const quaggaText = await decodeWithQuagga(candidate).catch(() => '');
+    if (resolveWaybill(quaggaText)) {
+      return quaggaText;
+    }
+  }
+  throw new Error('No barcode found');
+}
+
+async function decodeWithZxing(canvas) {
   if (!window.ZXing) {
     throw new Error('ZXing is unavailable');
   }
@@ -204,6 +224,93 @@ async function decodePhoto(canvas) {
   }
   const result = await codeReader.decodeFromCanvas(canvas);
   return result?.text || '';
+}
+
+function decodeWithQuagga(canvas) {
+  if (!window.Quagga) {
+    return Promise.reject(new Error('Quagga is unavailable'));
+  }
+
+  return new Promise((resolve, reject) => {
+    window.Quagga.decodeSingle({
+      decoder: {
+        readers: ['code_128_reader', 'code_39_reader', 'i2of5_reader', 'codabar_reader'],
+        multiple: false
+      },
+      locate: true,
+      locator: {
+        patchSize: 'medium',
+        halfSample: false
+      },
+      numOfWorkers: 0,
+      src: canvas.toDataURL('image/png')
+    }, (result) => {
+      const code = result?.codeResult?.code || '';
+      if (code) {
+        resolve(code);
+      } else {
+        reject(new Error('Quagga found no barcode'));
+      }
+    });
+  });
+}
+
+function createDecodeCanvases(sourceCanvas) {
+  const full = cloneCanvas(sourceCanvas);
+  const crop = cropCanvas(sourceCanvas, 0.06, 0.12, 0.88, 0.58);
+  return [
+    crop,
+    enhanceCanvas(crop),
+    full,
+    enhanceCanvas(full)
+  ];
+}
+
+function cloneCanvas(sourceCanvas) {
+  const canvas = document.createElement('canvas');
+  canvas.width = sourceCanvas.width;
+  canvas.height = sourceCanvas.height;
+  canvas.getContext('2d').drawImage(sourceCanvas, 0, 0);
+  return canvas;
+}
+
+function cropCanvas(sourceCanvas, leftRatio, topRatio, widthRatio, heightRatio) {
+  const sourceX = Math.floor(sourceCanvas.width * leftRatio);
+  const sourceY = Math.floor(sourceCanvas.height * topRatio);
+  const sourceWidth = Math.floor(sourceCanvas.width * widthRatio);
+  const sourceHeight = Math.floor(sourceCanvas.height * heightRatio);
+  const scale = Math.max(1, Math.min(2.2, 1800 / sourceWidth));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.floor(sourceWidth * scale);
+  canvas.height = Math.floor(sourceHeight * scale);
+  canvas.getContext('2d').drawImage(
+    sourceCanvas,
+    sourceX,
+    sourceY,
+    sourceWidth,
+    sourceHeight,
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+  return canvas;
+}
+
+function enhanceCanvas(sourceCanvas) {
+  const canvas = cloneCanvas(sourceCanvas);
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+  for (let index = 0; index < data.length; index += 4) {
+    const gray = data[index] * 0.299 + data[index + 1] * 0.587 + data[index + 2] * 0.114;
+    const value = gray > 150 ? 255 : 0;
+    data[index] = value;
+    data[index + 1] = value;
+    data[index + 2] = value;
+  }
+  context.putImageData(imageData, 0, 0);
+  return canvas;
 }
 
 function getDecodeHints() {
@@ -228,6 +335,7 @@ function stopCameraPreview(resetReader = true) {
   mediaStream?.getTracks().forEach((track) => track.stop());
   mediaStream = null;
   elements.video.srcObject = null;
+  elements.cameraCard.classList.remove('preview-ready');
 }
 
 function resetPhotoMode() {
@@ -236,6 +344,7 @@ function resetPhotoMode() {
   elements.canvas.hidden = true;
   elements.video.hidden = false;
   elements.placeholder.hidden = false;
+  elements.cameraCard.classList.remove('photo-captured', 'preview-ready');
   elements.photoButton.textContent = '拍照';
   elements.photoButton.disabled = true;
   elements.scanStatus.textContent = '正在重新打开摄像头。';
