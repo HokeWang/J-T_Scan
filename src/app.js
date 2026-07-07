@@ -1,7 +1,84 @@
 const WAYBILL_PATTERN = /JDM\d{12}/i;
 
+const translations = {
+  zh: {
+    title: '运单段码快查',
+    cameraPlaceholder: '正在打开摄像头，请允许相机权限',
+    photoButton: '拍照',
+    retakeButton: '重拍',
+    loadingData: '正在加载运单段码对照表。',
+    waitingPhoto: '等待拍照',
+    resultHint: '拍照或手输后，这里会显示正确段码。',
+    manualLabel: '手动输入或粘贴单号',
+    queryButton: '查询',
+    dataSourceTitle: '数据源',
+    dataSourceReady: '默认使用已内置的运单段码对照数据。',
+    reimportExcel: '重新导入 Excel',
+    embeddedReady: '数据已就绪，正在准备摄像头。',
+    importReady: '数据已就绪，可以拍照识别。',
+    noData: '内置数据未载入，请点击“重新导入 Excel”。',
+    cameraPermission: '正在请求摄像头权限，请允许浏览器使用摄像头。',
+    cameraReady: '摄像头已打开，请把面单条码或二维码放进取景框后拍照。',
+    cameraNotReady: '摄像头尚未准备好，请稍后再拍照。',
+    decodingPhoto: '正在识别照片中的条码或二维码。',
+    retakeOpening: '正在重新打开摄像头。',
+    notFoundRetake: '未查到，请重拍',
+    multipleMatches: '查到多条数据，请完善单号',
+    noManualMatch: '没有匹配到单号，请检查输入或重新拍照。',
+    hitLabel: '正确段码',
+    resultLabel: '查询结果',
+    photoSuccess: '拍照识别成功，已匹配到正确段码。',
+    manualSuccess: '手动查询成功，已匹配到正确段码。',
+    notInList: '这张单不在当前问题清单中，请复核面单或重新导入最新对照表。',
+    cameraDenied: '摄像头权限被拒绝，请在浏览器地址栏或系统设置中允许相机权限。',
+    cameraMissing: '没有找到可用摄像头，请确认浏览器有相机权限。',
+    insecureContext: '当前不是安全 HTTPS 页面，浏览器会禁止摄像头。请使用 GitHub Pages 的 https 链接访问。',
+    cameraFailed: '摄像头启动失败，请刷新页面后重试，或先手动输入单号。',
+    excelLoadFailed: 'Excel 导入失败。',
+    xlsxLoadFailed: 'Excel 解析库加载失败，请检查网络后刷新。',
+    noWorkbookData: 'Excel 中没有识别到“运单号”和“正确段码”数据。'
+  },
+  es: {
+    title: 'Consulta rápida de código de tramo',
+    cameraPlaceholder: 'Abriendo la cámara. Permita el acceso a la cámara.',
+    photoButton: 'Tomar foto',
+    retakeButton: 'Repetir foto',
+    loadingData: 'Cargando la tabla de guías y códigos de tramo.',
+    waitingPhoto: 'Esperando foto',
+    resultHint: 'Después de tomar una foto o ingresar la guía, aquí se mostrará el código correcto.',
+    manualLabel: 'Ingresar o pegar número de guía',
+    queryButton: 'Buscar',
+    dataSourceTitle: 'Fuente de datos',
+    dataSourceReady: 'Usando la tabla integrada de guías y códigos de tramo.',
+    reimportExcel: 'Importar Excel de nuevo',
+    embeddedReady: 'Datos listos. Preparando la cámara.',
+    importReady: 'Datos listos. Puede tomar una foto para reconocer la guía.',
+    noData: 'No se cargaron datos integrados. Importe el Excel de nuevo.',
+    cameraPermission: 'Solicitando permiso de cámara. Permita el acceso en el navegador.',
+    cameraReady: 'Cámara abierta. Coloque el código de barras o QR dentro del marco y tome la foto.',
+    cameraNotReady: 'La cámara aún no está lista. Intente de nuevo en unos segundos.',
+    decodingPhoto: 'Reconociendo el código de barras o QR en la foto.',
+    retakeOpening: 'Abriendo la cámara de nuevo.',
+    notFoundRetake: 'No encontrado. Repita la foto.',
+    multipleMatches: 'Se encontraron varios registros. Complete el número de guía.',
+    noManualMatch: 'No se encontró la guía. Revise el dato ingresado o repita la foto.',
+    hitLabel: 'Código correcto',
+    resultLabel: 'Resultado',
+    photoSuccess: 'Foto reconocida. Se encontró el código correcto.',
+    manualSuccess: 'Consulta manual exitosa. Se encontró el código correcto.',
+    notInList: 'Esta guía no está en la lista actual. Revise la etiqueta o importe la tabla más reciente.',
+    cameraDenied: 'Permiso de cámara denegado. Permita la cámara en el navegador o en la configuración del sistema.',
+    cameraMissing: 'No se encontró una cámara disponible. Confirme el permiso de cámara.',
+    insecureContext: 'La página no usa HTTPS seguro. El navegador bloqueará la cámara. Use el enlace HTTPS de GitHub Pages.',
+    cameraFailed: 'No se pudo iniciar la cámara. Actualice la página o ingrese la guía manualmente.',
+    excelLoadFailed: 'Error al importar el Excel.',
+    xlsxLoadFailed: 'No se pudo cargar el lector de Excel. Revise la red y actualice la página.',
+    noWorkbookData: 'No se detectaron datos de “运单号” y “正确段码” en el Excel.'
+  }
+};
+
 const elements = {
-  dataCount: document.querySelector('#data-count'),
+  languageButtons: document.querySelectorAll('.language-button'),
   dataSource: document.querySelector('#data-source'),
   excelInput: document.querySelector('#excel-input'),
   cameraCard: document.querySelector('.camera-card'),
@@ -24,14 +101,19 @@ let mediaStream = null;
 let codeReader = null;
 let audioContext = null;
 let photoCaptured = false;
+let currentLanguage = 'zh';
 
 document.addEventListener('DOMContentLoaded', () => {
   bindEvents();
+  setLanguage('zh');
   loadEmbeddedData();
   startCameraPreview();
 });
 
 function bindEvents() {
+  elements.languageButtons.forEach((button) => {
+    button.addEventListener('click', () => setLanguage(button.dataset.language));
+  });
   elements.photoButton.addEventListener('click', handlePhotoButtonClick);
   elements.manualButton.addEventListener('click', () => lookup(elements.manualInput.value, '手动查询'));
   elements.manualInput.addEventListener('keydown', (event) => {
@@ -55,15 +137,13 @@ function loadEmbeddedData() {
   });
 
   if (!nextMap.size) {
-    elements.dataCount.textContent = '待导入';
-    elements.scanStatus.textContent = '内置数据未载入，请点击“重新导入 Excel”。';
+    elements.scanStatus.textContent = t('noData');
     return;
   }
 
   waybillMap = nextMap;
-  elements.dataCount.textContent = `${waybillMap.size} 条`;
-  elements.dataSource.textContent = '已载入：内置运单段码对照表';
-  elements.scanStatus.textContent = '数据已就绪，正在准备摄像头。';
+  elements.dataSource.textContent = t('dataSourceReady');
+  elements.scanStatus.textContent = t('embeddedReady');
 }
 
 function waitForXlsx() {
@@ -75,7 +155,7 @@ function waitForXlsx() {
         resolve();
       } else if (Date.now() - startedAt > 8000) {
         window.clearInterval(timer);
-        reject(new Error('Excel 解析库加载失败，请检查网络后刷新。'));
+        reject(new Error(t('xlsxLoadFailed')));
       }
     }, 80);
   });
@@ -92,7 +172,7 @@ async function handleExcelUpload(event) {
     const buffer = await file.arrayBuffer();
     loadWorkbook(buffer, file.name);
   } catch (error) {
-    elements.scanStatus.textContent = error.message || 'Excel 导入失败。';
+    elements.scanStatus.textContent = error.message || t('excelLoadFailed');
   }
 }
 
@@ -111,13 +191,12 @@ function loadWorkbook(buffer, sourceName) {
   });
 
   if (nextMap.size === 0) {
-    throw new Error('Excel 中没有识别到“运单号”和“正确段码”数据。');
+    throw new Error(t('noWorkbookData'));
   }
 
   waybillMap = nextMap;
-  elements.dataCount.textContent = `${waybillMap.size} 条`;
   elements.dataSource.textContent = `已载入：${sourceName}`;
-  elements.scanStatus.textContent = '数据已就绪，可以开始扫码。';
+  elements.scanStatus.textContent = t('importReady');
 }
 
 async function startCameraPreview() {
@@ -129,7 +208,7 @@ async function startCameraPreview() {
     if (!window.isSecureContext) {
       throw new Error('InsecureContext');
     }
-    elements.scanStatus.textContent = '正在请求摄像头权限，请允许浏览器使用摄像头。';
+    elements.scanStatus.textContent = t('cameraPermission');
     mediaStream = await navigator.mediaDevices.getUserMedia({
       video: {
         facingMode: { ideal: 'environment' },
@@ -146,7 +225,7 @@ async function startCameraPreview() {
     elements.cameraCard.classList.add('preview-ready');
     elements.cameraCard.classList.remove('photo-captured');
     elements.photoButton.disabled = false;
-    elements.scanStatus.textContent = '摄像头已打开，请把面单条码或二维码放进取景框后拍照。';
+    elements.scanStatus.textContent = t('cameraReady');
   } catch (error) {
     stopCameraPreview();
     elements.scanStatus.textContent = getCameraErrorMessage(error);
@@ -165,7 +244,7 @@ async function handlePhotoButtonClick() {
 
 async function captureAndDecodePhoto() {
   if (!elements.video.videoWidth || !elements.video.videoHeight) {
-    elements.scanStatus.textContent = '摄像头尚未准备好，请稍后再拍照。';
+    elements.scanStatus.textContent = t('cameraNotReady');
     return;
   }
 
@@ -181,14 +260,14 @@ async function captureAndDecodePhoto() {
     elements.cameraCard.classList.add('photo-captured');
     elements.cameraCard.classList.remove('preview-ready');
     photoCaptured = true;
-    elements.photoButton.textContent = '重拍';
-    elements.scanStatus.textContent = '正在识别照片中的条码或二维码。';
+    elements.photoButton.textContent = t('retakeButton');
+    elements.scanStatus.textContent = t('decodingPhoto');
     stopCameraPreview(false);
 
     const decodedText = await decodePhoto(canvas);
     const waybill = resolveWaybill(decodedText);
     if (!waybill) {
-      elements.scanStatus.textContent = `已识别：${shortenRawText(decodedText)}，但未解析出可匹配单号。`;
+      showResult('--', '--', 'missing', t('notFoundRetake'));
       return;
     }
 
@@ -196,7 +275,7 @@ async function captureAndDecodePhoto() {
     window.navigator.vibrate?.(70);
     lookup(waybill, '拍照识别');
   } catch (error) {
-    elements.scanStatus.textContent = '照片未识别到条码或二维码，请点击“重拍”后靠近面单重新拍照。';
+    showResult('--', '--', 'missing', t('notFoundRetake'));
   }
 }
 
@@ -345,9 +424,10 @@ function resetPhotoMode() {
   elements.video.hidden = false;
   elements.placeholder.hidden = false;
   elements.cameraCard.classList.remove('photo-captured', 'preview-ready');
-  elements.photoButton.textContent = '拍照';
+  elements.photoButton.textContent = t('photoButton');
   elements.photoButton.disabled = true;
-  elements.scanStatus.textContent = '正在重新打开摄像头。';
+  clearResult();
+  elements.scanStatus.textContent = t('retakeOpening');
 }
 
 async function warmUpAudio() {
@@ -379,15 +459,15 @@ function playBeep() {
 function getCameraErrorMessage(error) {
   const message = String(error?.message || error || '');
   if (error?.name === 'NotAllowedError' || message.includes('NotAllowedError') || message.includes('Permission')) {
-    return '摄像头权限被拒绝，请在浏览器地址栏或系统设置中允许相机权限。';
+    return t('cameraDenied');
   }
   if (error?.name === 'NotFoundError' || message.includes('NotFoundError')) {
-    return '没有找到可用摄像头，请确认浏览器有相机权限。';
+    return t('cameraMissing');
   }
   if (!window.isSecureContext) {
-    return '当前不是安全 HTTPS 页面，浏览器会禁止摄像头。请使用 GitHub Pages 的 https 链接访问。';
+    return t('insecureContext');
   }
-  return '摄像头启动失败，请刷新页面后重试，或先手动输入单号。';
+  return t('cameraFailed');
 }
 
 function lookup(rawText, sourceLabel) {
@@ -398,22 +478,22 @@ function lookup(rawText, sourceLabel) {
   elements.manualInput.value = waybill || rawText.trim();
 
   if (lookupResult.status === 'multiple') {
-    showResult('--', '--', 'warn', '查到多条数据，请完善单号');
+    showResult('--', '--', 'warn', t('multipleMatches'));
     return;
   }
 
   if (!waybill) {
-    showResult('--', '--', 'warn', '没有匹配到单号，请检查输入或重新拍照。');
+    showResult('--', '--', 'warn', t('noManualMatch'));
     return;
   }
 
   const segment = waybillMap.get(waybill);
   if (segment) {
-    showResult(waybill, segment, 'hit', `${sourceLabel}成功，已匹配到正确段码。`);
+    showResult(waybill, segment, 'hit', sourceLabel === '手动查询' ? t('manualSuccess') : t('photoSuccess'));
     return;
   }
 
-  showResult(waybill, '未命中', 'missing', '这张单不在当前问题清单中，请复核面单或重新导入最新对照表。');
+  showResult(waybill, currentLanguage === 'es' ? 'Sin coincidencia' : '未命中', 'missing', t('notInList'));
 }
 
 function resolveManualWaybill(value) {
@@ -488,9 +568,50 @@ function shortenRawText(value) {
 
 function showResult(waybill, segment, state, note) {
   elements.resultCard.dataset.state = state;
-  elements.resultLabel.textContent = state === 'hit' ? '正确段码' : '查询结果';
+  elements.resultLabel.textContent = state === 'hit' ? t('hitLabel') : t('resultLabel');
   elements.waybillNumber.textContent = waybill || '--';
   elements.segmentCode.textContent = segment || '--';
   elements.resultNote.textContent = note;
   elements.scanStatus.textContent = note;
+}
+
+function clearResult(updateStatus = true) {
+  elements.resultCard.dataset.state = 'idle';
+  elements.resultLabel.textContent = t('waitingPhoto');
+  elements.waybillNumber.textContent = '--';
+  elements.segmentCode.textContent = '--';
+  elements.resultNote.textContent = t('resultHint');
+  if (updateStatus) {
+    elements.scanStatus.textContent = t('retakeOpening');
+  }
+}
+
+function t(key) {
+  return translations[currentLanguage][key] || translations.zh[key] || key;
+}
+
+function setLanguage(language) {
+  currentLanguage = translations[language] ? language : 'zh';
+  document.documentElement.lang = currentLanguage === 'es' ? 'es' : 'zh-CN';
+  elements.languageButtons.forEach((button) => {
+    button.classList.toggle('active', button.dataset.language === currentLanguage);
+  });
+  document.querySelectorAll('[data-i18n]').forEach((node) => {
+    node.textContent = t(node.dataset.i18n);
+  });
+  elements.manualInput.placeholder = currentLanguage === 'es' ? 'Ej. JDM000001507469' : '例如 JDM000001507469';
+  refreshResultLanguage();
+}
+
+function refreshResultLanguage() {
+  const state = elements.resultCard.dataset.state;
+  if (state === 'hit') {
+    elements.resultLabel.textContent = t('hitLabel');
+    return;
+  }
+  if (state === 'idle') {
+    clearResult(false);
+    return;
+  }
+  elements.resultLabel.textContent = t('resultLabel');
 }

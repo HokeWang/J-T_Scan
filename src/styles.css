@@ -62,15 +62,28 @@ h2 {
   font-size: 17px;
 }
 
-.data-pill {
+.language-switch {
   flex: 0 0 auto;
+  display: flex;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 7px 11px;
   background: rgba(255, 253, 246, 0.8);
-  color: var(--brand-dark);
+}
+
+.language-button {
+  min-height: 34px;
+  border-radius: 0;
+  padding: 0 9px;
+  background: transparent;
+  color: var(--muted);
   font-size: 12px;
   font-weight: 800;
+}
+
+.language-button.active {
+  background: var(--brand);
+  color: #fffdf6;
 }
 
 .scanner-panel,
