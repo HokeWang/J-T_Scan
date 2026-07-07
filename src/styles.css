@@ -271,6 +271,10 @@ input[type="text"] {
   font-weight: 900;
 }
 
+.result-values .waybill-number:not(:first-child) {
+  margin-top: 14px;
+}
+
 .segment-code {
   margin: 12px auto;
   width: fit-content;

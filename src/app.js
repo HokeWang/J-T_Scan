@@ -75,6 +75,7 @@ const elements = {
   manualButton: document.querySelector('#manual-button'),
   resultCard: document.querySelector('#result-card'),
   resultLabel: document.querySelector('#result-label'),
+  resultValues: document.querySelector('#result-values'),
   waybillNumber: document.querySelector('#waybill-number'),
   segmentCode: document.querySelector('#segment-code'),
   resultNote: document.querySelector('#result-note')
@@ -407,7 +408,7 @@ function lookup(rawText, sourceLabel) {
   elements.manualInput.value = waybill || rawText.trim();
 
   if (lookupResult.status === 'multiple') {
-    showResult('--', '--', 'warn', t('multipleMatches'));
+    showMultipleResults(lookupResult.matches, t('multipleMatches'));
     return;
   }
 
@@ -449,7 +450,7 @@ function resolveManualWaybill(value) {
     return { status: 'hit', waybill: matches[0] };
   }
   if (matches.length > 1) {
-    return { status: 'multiple', waybill: '' };
+    return { status: 'multiple', waybill: '', matches };
   }
   return { status: 'none', waybill: '' };
 }
@@ -498,17 +499,46 @@ function shortenRawText(value) {
 function showResult(waybill, segment, state, note) {
   elements.resultCard.dataset.state = state;
   elements.resultLabel.textContent = state === 'hit' ? t('hitLabel') : t('resultLabel');
-  elements.waybillNumber.textContent = waybill || '--';
-  elements.segmentCode.textContent = segment || '--';
+  elements.resultValues.replaceChildren(createWaybillLine(waybill || '--'), createSegmentLine(segment || '--'));
+  elements.waybillNumber = elements.resultValues.querySelector('.waybill-number');
+  elements.segmentCode = elements.resultValues.querySelector('.segment-code');
   elements.resultNote.textContent = note;
   elements.scanStatus.textContent = note;
+}
+
+function showMultipleResults(matches, note) {
+  elements.resultCard.dataset.state = 'hit';
+  elements.resultLabel.textContent = t('hitLabel');
+  elements.resultValues.replaceChildren(...matches.flatMap((waybill) => [
+    createWaybillLine(waybill),
+    createSegmentLine(waybillMap.get(waybill) || '--')
+  ]));
+  elements.waybillNumber = elements.resultValues.querySelector('.waybill-number');
+  elements.segmentCode = elements.resultValues.querySelector('.segment-code');
+  elements.resultNote.textContent = note;
+  elements.scanStatus.textContent = note;
+}
+
+function createWaybillLine(value) {
+  const line = document.createElement('div');
+  line.className = 'waybill-number';
+  line.textContent = value;
+  return line;
+}
+
+function createSegmentLine(value) {
+  const line = document.createElement('div');
+  line.className = 'segment-code';
+  line.textContent = value;
+  return line;
 }
 
 function clearResult(updateStatus = true) {
   elements.resultCard.dataset.state = 'idle';
   elements.resultLabel.textContent = t('waitingPhoto');
-  elements.waybillNumber.textContent = '--';
-  elements.segmentCode.textContent = '--';
+  elements.resultValues.replaceChildren(createWaybillLine('--'), createSegmentLine('--'));
+  elements.waybillNumber = elements.resultValues.querySelector('.waybill-number');
+  elements.segmentCode = elements.resultValues.querySelector('.segment-code');
   elements.resultNote.textContent = t('resultHint');
   if (updateStatus) {
     elements.scanStatus.textContent = t('retakeOpening');
