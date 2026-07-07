@@ -5,9 +5,9 @@ const elements = {
   dataSource: document.querySelector('#data-source'),
   excelInput: document.querySelector('#excel-input'),
   video: document.querySelector('#camera-preview'),
+  canvas: document.querySelector('#photo-canvas'),
   placeholder: document.querySelector('#camera-placeholder'),
-  scanButton: document.querySelector('#scan-button'),
-  stopButton: document.querySelector('#stop-button'),
+  photoButton: document.querySelector('#photo-button'),
   scanStatus: document.querySelector('#scan-status'),
   manualInput: document.querySelector('#manual-input'),
   manualButton: document.querySelector('#manual-button'),
@@ -21,18 +21,17 @@ const elements = {
 let waybillMap = new Map();
 let mediaStream = null;
 let codeReader = null;
-let scanTimer = null;
-let lastScanValue = '';
 let audioContext = null;
+let photoCaptured = false;
 
 document.addEventListener('DOMContentLoaded', () => {
   bindEvents();
   loadEmbeddedData();
+  startCameraPreview();
 });
 
 function bindEvents() {
-  elements.scanButton.addEventListener('click', startScanner);
-  elements.stopButton.addEventListener('click', stopScanner);
+  elements.photoButton.addEventListener('click', handlePhotoButtonClick);
   elements.manualButton.addEventListener('click', () => lookup(elements.manualInput.value, '手动查询'));
   elements.manualInput.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
@@ -63,7 +62,7 @@ function loadEmbeddedData() {
   waybillMap = nextMap;
   elements.dataCount.textContent = `${waybillMap.size} 条`;
   elements.dataSource.textContent = '已载入：内置运单段码对照表';
-  elements.scanStatus.textContent = '数据已就绪，可以开始扫码。';
+  elements.scanStatus.textContent = '数据已就绪，正在准备摄像头。';
 }
 
 function waitForXlsx() {
@@ -120,35 +119,16 @@ function loadWorkbook(buffer, sourceName) {
   elements.scanStatus.textContent = '数据已就绪，可以开始扫码。';
 }
 
-async function startScanner() {
+async function startCameraPreview() {
   if (!waybillMap.size) {
-    showResult('', '', 'warn', '请先导入运单段码对照表。');
     return;
   }
 
-  stopScanner();
-  lastScanValue = '';
-
-  if (window.ZXing) {
-    await startZxingScanner();
-    return;
-  }
-
-  elements.scanStatus.textContent = '扫码组件未加载成功，请刷新页面；也可以先手动输入单号。';
-}
-
-async function startZxingScanner() {
   try {
     if (!window.isSecureContext) {
       throw new Error('InsecureContext');
     }
-    await warmUpAudio();
-    codeReader = new window.ZXing.BrowserMultiFormatReader(getDecodeHints(), 120);
-    elements.placeholder.hidden = true;
-    elements.scanButton.disabled = true;
-    elements.stopButton.disabled = false;
     elements.scanStatus.textContent = '正在请求摄像头权限，请允许浏览器使用摄像头。';
-
     mediaStream = await navigator.mediaDevices.getUserMedia({
       video: {
         facingMode: { ideal: 'environment' },
@@ -160,13 +140,70 @@ async function startZxingScanner() {
     });
     elements.video.srcObject = mediaStream;
     await elements.video.play();
-    codeReader.decodeFromVideoElementContinuously(elements.video, handleDecodeResult);
-
-    elements.scanStatus.textContent = '摄像头已打开，请把条码横向放进取景框。';
+    codeReader = new window.ZXing.BrowserMultiFormatReader(getDecodeHints(), 120);
+    elements.placeholder.hidden = true;
+    elements.photoButton.disabled = false;
+    elements.scanStatus.textContent = '摄像头已打开，请把面单条码或二维码放进取景框后拍照。';
   } catch (error) {
-    stopScanner();
+    stopCameraPreview();
     elements.scanStatus.textContent = getCameraErrorMessage(error);
   }
+}
+
+async function handlePhotoButtonClick() {
+  if (photoCaptured) {
+    resetPhotoMode();
+    await startCameraPreview();
+    return;
+  }
+
+  await captureAndDecodePhoto();
+}
+
+async function captureAndDecodePhoto() {
+  if (!elements.video.videoWidth || !elements.video.videoHeight) {
+    elements.scanStatus.textContent = '摄像头尚未准备好，请稍后再拍照。';
+    return;
+  }
+
+  try {
+    await warmUpAudio();
+    const canvas = elements.canvas;
+    canvas.width = elements.video.videoWidth;
+    canvas.height = elements.video.videoHeight;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    context.drawImage(elements.video, 0, 0, canvas.width, canvas.height);
+    canvas.hidden = false;
+    elements.video.hidden = true;
+    photoCaptured = true;
+    elements.photoButton.textContent = '重拍';
+    elements.scanStatus.textContent = '正在识别照片中的条码或二维码。';
+    stopCameraPreview(false);
+
+    const decodedText = await decodePhoto(canvas);
+    const waybill = resolveWaybill(decodedText);
+    if (!waybill) {
+      elements.scanStatus.textContent = `已识别：${shortenRawText(decodedText)}，但未解析出可匹配单号。`;
+      return;
+    }
+
+    playBeep();
+    window.navigator.vibrate?.(70);
+    lookup(waybill, '拍照识别');
+  } catch (error) {
+    elements.scanStatus.textContent = '照片未识别到条码或二维码，请点击“重拍”后靠近面单重新拍照。';
+  }
+}
+
+async function decodePhoto(canvas) {
+  if (!window.ZXing) {
+    throw new Error('ZXing is unavailable');
+  }
+  if (!codeReader) {
+    codeReader = new window.ZXing.BrowserMultiFormatReader(getDecodeHints(), 120);
+  }
+  const result = await codeReader.decodeFromCanvas(canvas);
+  return result?.text || '';
 }
 
 function getDecodeHints() {
@@ -183,41 +220,25 @@ function getDecodeHints() {
   return hints;
 }
 
-function handleDecodeResult(result, error) {
-  if (error && error.name && error.name !== 'NotFoundException') {
-    elements.scanStatus.textContent = '正在扫描，请让条码保持清晰并横向放入取景框。';
+function stopCameraPreview(resetReader = true) {
+  if (resetReader) {
+    codeReader?.reset();
+    codeReader = null;
   }
-  if (!result?.text || result.text === lastScanValue) {
-    return;
-  }
-
-  const waybill = resolveWaybill(result.text);
-  if (!waybill) {
-    elements.scanStatus.textContent = `已识别：${shortenRawText(result.text)}，但未解析出 JDM 加 12 位数字。`;
-    lastScanValue = result.text;
-    return;
-  }
-
-  lastScanValue = result.text;
-  playBeep();
-  window.navigator.vibrate?.(70);
-  lookup(waybill, '扫码识别');
-}
-
-function stopScanner() {
-  if (scanTimer) {
-    window.clearInterval(scanTimer);
-    scanTimer = null;
-  }
-  codeReader?.reset();
-  codeReader = null;
   mediaStream?.getTracks().forEach((track) => track.stop());
   mediaStream = null;
   elements.video.srcObject = null;
+}
+
+function resetPhotoMode() {
+  stopCameraPreview();
+  photoCaptured = false;
+  elements.canvas.hidden = true;
   elements.video.hidden = false;
   elements.placeholder.hidden = false;
-  elements.scanButton.disabled = false;
-  elements.stopButton.disabled = true;
+  elements.photoButton.textContent = '拍照';
+  elements.photoButton.disabled = true;
+  elements.scanStatus.textContent = '正在重新打开摄像头。';
 }
 
 async function warmUpAudio() {
@@ -261,11 +282,19 @@ function getCameraErrorMessage(error) {
 }
 
 function lookup(rawText, sourceLabel) {
-  const waybill = resolveWaybill(rawText);
+  const lookupResult = sourceLabel === '手动查询'
+    ? resolveManualWaybill(rawText)
+    : { status: 'hit', waybill: resolveWaybill(rawText) };
+  const waybill = lookupResult.waybill;
   elements.manualInput.value = waybill || rawText.trim();
 
+  if (lookupResult.status === 'multiple') {
+    showResult('--', '--', 'warn', '查到多条数据，请完善单号');
+    return;
+  }
+
   if (!waybill) {
-    showResult('--', '--', 'warn', '没有识别到 JDM 加 12 位数字的运单号，请调整角度或手动输入。');
+    showResult('--', '--', 'warn', '没有匹配到单号，请检查输入或重新拍照。');
     return;
   }
 
@@ -276,6 +305,35 @@ function lookup(rawText, sourceLabel) {
   }
 
   showResult(waybill, '未命中', 'missing', '这张单不在当前问题清单中，请复核面单或重新导入最新对照表。');
+}
+
+function resolveManualWaybill(value) {
+  const exactWaybill = resolveWaybill(value);
+  if (exactWaybill && waybillMap.has(exactWaybill)) {
+    return { status: 'hit', waybill: exactWaybill };
+  }
+
+  const query = String(value || '').replace(/\s+/g, '').toUpperCase();
+  const digits = query.replace(/\D/g, '');
+  const token = digits || query;
+  if (!token) {
+    return { status: 'none', waybill: '' };
+  }
+
+  const matches = Array.from(waybillMap.keys()).filter((waybill) => {
+    if (digits) {
+      return waybill.replace(/^JDM/, '').endsWith(digits);
+    }
+    return waybill.includes(token);
+  });
+
+  if (matches.length === 1) {
+    return { status: 'hit', waybill: matches[0] };
+  }
+  if (matches.length > 1) {
+    return { status: 'multiple', waybill: '' };
+  }
+  return { status: 'none', waybill: '' };
 }
 
 function normalizeWaybill(value) {

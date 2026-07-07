@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>运单段码快查</title>
-  <link rel="stylesheet" href="./src/styles.css?v=20260707-parse-waybill">
+  <link rel="stylesheet" href="./src/styles.css?v=20260707-photo-mode">
 </head>
 <body>
   <main class="app-shell">
@@ -18,12 +18,12 @@
     <section class="scanner-panel" aria-label="扫码查询">
       <div class="camera-card">
         <video id="camera-preview" playsinline muted></video>
+        <canvas id="photo-canvas" class="photo-canvas" hidden></canvas>
         <div class="scan-frame" aria-hidden="true"><span></span></div>
-        <div class="camera-placeholder" id="camera-placeholder">点击开始扫描，对准面单条码或二维码</div>
+        <div class="camera-placeholder" id="camera-placeholder">正在打开摄像头，请允许相机权限</div>
       </div>
       <div class="action-row">
-        <button class="primary-button" type="button" id="scan-button">开始扫描</button>
-        <button class="ghost-button" type="button" id="stop-button" disabled>停止扫描</button>
+        <button class="primary-button" type="button" id="photo-button" disabled>拍照</button>
       </div>
       <p class="status-text" id="scan-status" role="status">正在加载运单段码对照表。</p>
     </section>
@@ -56,6 +56,6 @@
   <script src="./src/data.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script defer src="./src/app.js?v=20260707-parse-waybill"></script>
+  <script defer src="./src/app.js?v=20260707-photo-mode"></script>
 </body>
 </html>

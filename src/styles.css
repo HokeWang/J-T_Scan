@@ -105,6 +105,14 @@ video {
   object-fit: cover;
 }
 
+.photo-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .camera-placeholder {
   position: absolute;
   inset: 0;
@@ -173,13 +181,6 @@ button:disabled {
   flex: 1;
   background: var(--brand);
   color: #fffdf6;
-}
-
-.ghost-button {
-  flex: 0 0 112px;
-  border: 1px solid var(--line);
-  background: #fffdf6;
-  color: var(--ink);
 }
 
 .status-text {
