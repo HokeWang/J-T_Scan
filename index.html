@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>运单段码快查</title>
-  <link rel="stylesheet" href="./src/styles.css?v=20260707-ios-camera">
+  <link rel="stylesheet" href="./src/styles.css?v=20260707-android-layout">
 </head>
 <body>
   <main class="app-shell">
@@ -21,15 +21,20 @@
         <video id="camera-preview" playsinline muted></video>
         <div id="html5-reader" class="html5-reader"></div>
         <div class="scan-frame" aria-hidden="true"><span></span></div>
-        <div class="camera-placeholder" id="camera-placeholder">点击开始扫码，对准面单条码或二维码</div>
+        <div class="camera-placeholder" id="camera-placeholder">点击开始扫描，对准面单条码或二维码</div>
       </div>
       <div class="action-row">
-        <button class="primary-button" type="button" id="scan-button">开始扫码</button>
-        <button class="secondary-button" type="button" id="photo-button">拍照识别</button>
-        <button class="ghost-button" type="button" id="stop-button" disabled>停止</button>
+        <button class="primary-button" type="button" id="scan-button">开始扫描</button>
+        <button class="ghost-button" type="button" id="stop-button" disabled>停止扫描</button>
       </div>
-      <input id="photo-input" type="file" accept="image/*" capture="environment">
       <p class="status-text" id="scan-status" role="status">正在加载运单段码对照表。</p>
+    </section>
+
+    <section class="result-card" id="result-card" data-state="idle" aria-live="polite">
+      <p class="result-label" id="result-label">等待扫码</p>
+      <div class="waybill-number" id="waybill-number">--</div>
+      <div class="segment-code" id="segment-code">--</div>
+      <p class="result-note" id="result-note">扫码或手输后，这里会显示正确段码。</p>
     </section>
 
     <section class="lookup-card" aria-label="手动查询">
@@ -38,13 +43,6 @@
         <input id="manual-input" type="text" inputmode="text" autocomplete="off" placeholder="例如 JDM000001507469">
         <button type="button" id="manual-button">查询</button>
       </div>
-    </section>
-
-    <section class="result-card" id="result-card" data-state="idle" aria-live="polite">
-      <p class="result-label" id="result-label">等待扫码</p>
-      <div class="waybill-number" id="waybill-number">--</div>
-      <div class="segment-code" id="segment-code">--</div>
-      <p class="result-note" id="result-note">扫码或手输后，这里会显示正确段码。</p>
     </section>
 
     <section class="tools-card" aria-label="数据工具">
@@ -60,6 +58,6 @@
   <script src="./src/data.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script defer src="./src/app.js?v=20260707-ios-camera"></script>
+  <script defer src="./src/app.js?v=20260707-android-layout"></script>
 </body>
 </html>

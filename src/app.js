@@ -8,8 +8,6 @@ const elements = {
   html5Reader: document.querySelector('#html5-reader'),
   placeholder: document.querySelector('#camera-placeholder'),
   scanButton: document.querySelector('#scan-button'),
-  photoButton: document.querySelector('#photo-button'),
-  photoInput: document.querySelector('#photo-input'),
   stopButton: document.querySelector('#stop-button'),
   scanStatus: document.querySelector('#scan-status'),
   manualInput: document.querySelector('#manual-input'),
@@ -36,8 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function bindEvents() {
   elements.scanButton.addEventListener('click', startScanner);
-  elements.photoButton.addEventListener('click', () => elements.photoInput.click());
-  elements.photoInput.addEventListener('change', handlePhotoScan);
   elements.stopButton.addEventListener('click', stopScanner);
   elements.manualButton.addEventListener('click', () => lookup(elements.manualInput.value, '手动查询'));
   elements.manualInput.addEventListener('keydown', (event) => {
@@ -199,31 +195,6 @@ async function startHtml5Scanner() {
   }
 }
 
-async function handlePhotoScan(event) {
-  const [file] = event.target.files;
-  if (!file) {
-    return;
-  }
-
-  try {
-    if (!window.Html5Qrcode) {
-      throw new Error('Html5Qrcode is unavailable');
-    }
-    stopScanner();
-    elements.scanStatus.textContent = '正在识别照片中的条码或二维码。';
-    const scanner = new window.Html5Qrcode(elements.html5Reader.id, {
-      formatsToSupport: getHtml5Formats()
-    });
-    const decodedText = await scanner.scanFile(file, false);
-    await scanner.clear().catch(() => {});
-    lookup(decodedText, '拍照识别');
-  } catch (error) {
-    elements.scanStatus.textContent = '照片未识别到有效单号，请靠近面单条码或二维码重新拍摄。';
-  } finally {
-    elements.photoInput.value = '';
-  }
-}
-
 async function startHtml5ScannerWithFallbacks() {
   const config = { fps: 10, qrbox: getQrbox, aspectRatio: 1.3333333333 };
   const onSuccess = (decodedText) => {
@@ -378,7 +349,7 @@ function getCameraErrorMessage(error) {
   if (!window.isSecureContext) {
     return '当前不是安全 HTTPS 页面，浏览器会禁止摄像头。请使用 GitHub Pages 的 https 链接访问。';
   }
-  return '摄像头启动失败。iOS 可点“拍照识别”唤起系统相机，或先手动输入单号。';
+  return '摄像头启动失败，请刷新页面后重试，或先手动输入单号。';
 }
 
 function lookup(rawText, sourceLabel) {

@@ -100,6 +100,7 @@ h2 {
   position: relative;
   overflow: hidden;
   aspect-ratio: 4 / 3;
+  width: 100%;
   max-height: 390px;
   border-radius: 8px;
   background: #14201c;
@@ -116,23 +117,38 @@ video {
   position: absolute;
   inset: 0;
   overflow: hidden;
+  width: 100% !important;
+  height: 100% !important;
+  border: 0 !important;
+  padding: 0 !important;
 }
 
 .html5-reader:empty {
   display: none;
 }
 
-.html5-reader video,
-.html5-reader canvas {
+.html5-reader > div,
+.html5-reader #html5-reader__scan_region {
   width: 100% !important;
   height: 100% !important;
-  object-fit: cover;
+  min-height: 100% !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+.html5-reader video,
+.html5-reader canvas,
+.html5-reader #html5-reader__scan_region video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
 }
 
 .html5-reader img,
 .html5-reader button,
 .html5-reader select,
-.html5-reader span {
+.html5-reader span,
+.html5-reader #html5-reader__dashboard {
   display: none !important;
 }
 
@@ -180,6 +196,7 @@ video {
 }
 
 .action-row {
+  flex-wrap: nowrap;
   margin-top: 12px;
 }
 
@@ -205,15 +222,8 @@ button:disabled {
   color: #fffdf6;
 }
 
-.secondary-button {
-  flex: 0 0 108px;
-  border: 1px solid rgba(15, 139, 111, 0.28);
-  background: rgba(15, 139, 111, 0.1);
-  color: var(--brand-dark);
-}
-
 .ghost-button {
-  flex: 0 0 76px;
+  flex: 0 0 112px;
   border: 1px solid var(--line);
   background: #fffdf6;
   color: var(--ink);
@@ -343,15 +353,17 @@ input[type="file"] {
 }
 
 @media (max-width: 390px) {
-  .action-row,
   .tools-card {
     flex-direction: column;
   }
 
-  .secondary-button,
   .ghost-button,
   .file-button {
     width: 100%;
-    flex-basis: auto;
+  }
+
+  .action-row .ghost-button {
+    width: auto;
+    flex-basis: 112px;
   }
 }
